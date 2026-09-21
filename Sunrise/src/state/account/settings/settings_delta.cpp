@@ -111,6 +111,8 @@ bool apply_delta(const SettingsDelta& delta,
     if (candidate.keyBindingSource == KeyBindingSource::account) {
         apply_if_present(delta.keyBindings, candidate.keyBindings);
     }
+    apply_if_present(delta.controllerBindings, candidate.controllerBindings);
+
     if (!valid(candidate)) {
         return false;
     }

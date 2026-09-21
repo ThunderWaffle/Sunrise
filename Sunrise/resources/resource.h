@@ -47,3 +47,6 @@
 /** Account preferences have their own schema and seed data in the save. */
 #define IDR_ACCOUNT_SETTINGS_SCHEMA 109
 #define IDR_ACCOUNT_SETTINGS_DEFAULTS 110
+/** Controller bindings have their own schema and seed data for the version-3 migration. */
+#define IDR_CONTROLLER_BINDINGS_SCHEMA 111
+#define IDR_CONTROLLER_BINDINGS_DEFAULTS 112

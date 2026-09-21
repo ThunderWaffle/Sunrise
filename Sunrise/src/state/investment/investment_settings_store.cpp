@@ -34,6 +34,31 @@ bool read_bindings(account::settings::AccountSettings& output) noexcept {
 
 } // namespace
 
+/** Restores the complete semantic controller action table. */
+bool read_controller_bindings(account::settings::AccountSettings& output) noexcept {
+    Statement rows("SELECT action,primary_button,secondary_button,flags FROM account_controller_bindings ORDER BY action");
+    std::size_t count = 0;
+    int result = rows.step();
+    while (result == SQLITE_ROW) {
+        std::size_t index = 0;
+        std::uint8_t primary = 0;
+        std::uint8_t secondary = 0;
+        std::uint8_t flags = 0;
+        if (!rows.columns(index, primary, secondary, flags) || index != count
+            || index >= output.controllerBindings.values.size()) {
+            return false;
+        }
+        auto& binding = output.controllerBindings.values[count++];
+        binding.primary = primary;
+        binding.secondary = secondary;
+        binding.flags = flags;
+        result = rows.step();
+    }
+    output.controllerBindings.configured =
+        result == SQLITE_DONE && count == output.controllerBindings.values.size();
+    return output.controllerBindings.configured;
+}
+
 /** Reads every account preference from one database snapshot. */
 bool read_settings(account::settings::AccountSettings& output) noexcept {
     Transaction transaction;
@@ -141,7 +166,8 @@ bool read_settings(account::settings::AccountSettings& output) noexcept {
         return false;
     }
     output.configured = true;
-    return read_bindings(output) && account::settings::valid(output) && transaction.commit();
+    return read_bindings(output) && read_controller_bindings(output)
+           && account::settings::valid(output) && transaction.commit();
 }
 
 /** Preference and binding changes commit together. */
@@ -239,6 +265,20 @@ bool write_settings(const account::settings::AccountSettings& value) noexcept {
         if (!binding.write(index,
                            row.primary ? static_cast<int>(*row.primary) : -1,
                            row.secondary ? static_cast<int>(*row.secondary) : -1)) {
+            return false;
+        }
+    }
+    if (!execute("DELETE FROM account_controller_bindings")) {
+        return false;
+    }
+    Statement controllerBindingInsert("INSERT INTO account_controller_bindings VALUES(?,?,?,?)");
+    for (std::size_t index = 0; index < value.controllerBindings.values.size(); ++index) {
+        const auto& controllerBinding = value.controllerBindings.values[index];
+        const int unboundButton = static_cast<int>(account::settings::controller_bindings::kControllerUnboundInputCode);
+        const int primary = controllerBinding.primary ? static_cast<int>(*controllerBinding.primary) : unboundButton;
+        const int secondary = controllerBinding.secondary ? static_cast<int>(*controllerBinding.secondary) : unboundButton;
+        const int flags = controllerBinding.flags ? static_cast<int>(*controllerBinding.flags) : 0;
+        if (!controllerBindingInsert.write(index, primary, secondary, flags)) {
             return false;
         }
     }

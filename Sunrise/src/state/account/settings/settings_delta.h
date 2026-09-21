@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <optional>
 
+#include "controller_bindings.h"
 #include "key_bindings.h"
 
 namespace sunrise::state::account::settings {
@@ -99,6 +100,7 @@ struct SettingsDelta {
     SocialDelta social;
     std::optional<KeyBindingSource> keyBindingSource;
     std::optional<bindings::KeyBindings> keyBindings;
+    std::optional<controller_bindings::ControllerBindings> controllerBindings;
 };
 
 /**

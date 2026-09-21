@@ -84,7 +84,9 @@ bool open(std::string_view path,
           std::string_view schema,
           std::string_view defaults,
           std::string_view settingsSchema,
-          std::string_view settingsDefaults) noexcept {
+          std::string_view settingsDefaults,
+          std::string_view controllerBindingsSchema,
+          std::string_view controllerBindingsDefaults) noexcept {
     const std::lock_guard lock(g_mutex);
     if (g_database != nullptr) {
         return false;
@@ -109,6 +111,8 @@ bool open(std::string_view path,
     }
     const std::string preferenceSchema(settingsSchema);
     const std::string preferenceDefaults(settingsDefaults);
+    const std::string controllerBindingsSchemaText(controllerBindingsSchema);
+    const std::string controllerBindingsDefaultsText(controllerBindingsDefaults);
     if (ready && version == 0) {
         Transaction transaction;
         const std::string schemaText(schema);
@@ -117,26 +121,42 @@ bool open(std::string_view path,
                 && execute(schemaText.c_str()) && execute(defaultText.c_str())
                 && !settingsSchema.empty() && !settingsDefaults.empty()
                 && execute(preferenceSchema.c_str()) && execute(preferenceDefaults.c_str())
+                && !controllerBindingsSchema.empty() && !controllerBindingsDefaults.empty()
+                && execute(controllerBindingsSchemaText.c_str())
+                && execute(controllerBindingsDefaultsText.c_str())
                 && transaction.commit();
     } else if (ready) {
-        // Version 2 adds account preferences and per-item seen state.
-        constexpr int kSchemaVersion = 2;
+        // Version 3 adds semantic controller bindings to the account settings.
+        constexpr int kSchemaVersion = 3;
         constexpr int kApplicationId = 1397902921;
         int application = 0;
         Statement query("PRAGMA application_id");
-        ready = (version == 1 || version == kSchemaVersion) && query.step() == SQLITE_ROW
+        ready = ((version >= 1 ) || version == kSchemaVersion) && query.step() == SQLITE_ROW
                 && query.column(0, application) && application == kApplicationId;
     }
     if (ready && version == 1) {
         Transaction transaction;
         ready =
             transaction.ready() && !settingsSchema.empty() && !settingsDefaults.empty()
+            && !controllerBindingsSchema.empty() && !controllerBindingsDefaults.empty()
             && execute(
                 "ALTER TABLE items ADD COLUMN seen INTEGER NOT NULL DEFAULT 0 CHECK(seen IN(0,1));"
                 "ALTER TABLE profile_items ADD COLUMN seen INTEGER NOT NULL DEFAULT 1 CHECK(seen "
                 "IN(0,1));")
             && execute(preferenceSchema.c_str()) && execute(preferenceDefaults.c_str())
+            && execute(controllerBindingsSchemaText.c_str())
+            && execute(controllerBindingsDefaultsText.c_str())
             && execute("PRAGMA user_version=2") && transaction.commit();
+    }
+    if (ready && version == 2) {
+        Transaction transaction;
+        ready =
+            transaction.ready() && !controllerBindingsSchema.empty()
+            && !controllerBindingsDefaults.empty()
+            && execute(controllerBindingsSchemaText.c_str())
+            && execute(controllerBindingsDefaultsText.c_str())
+            && execute("PRAGMA user_version=3")
+            && transaction.commit();
     }
     if (!ready) {
         shutdown();

@@ -9,8 +9,8 @@
 
 namespace sunrise::middleware::datagen::family4::account::preferences {
 
-/** The byte-exact native preference record spans 77 bytes inside the account object. */
-inline constexpr std::size_t kRecordSize = 77;
+/** The byte-exact native preference record spans 280 bytes inside the account object. */
+inline constexpr std::size_t kRecordSize = 280;
 /** 1 native byte separates the unidentified audio selector from the migration latch. */
 inline constexpr std::size_t kAudioSelectorPaddingSize = 1;
 /** 2 native bytes separate the shoulder setting from the account identity toggles. */
@@ -21,6 +21,8 @@ inline constexpr std::size_t kCalibrationPaddingSize = 1;
 inline constexpr std::size_t kFieldOfViewPaddingSize = 2;
 /** 3 bytes align the fixed keybinding array after its source selector. */
 inline constexpr std::size_t kBindingArrayPaddingSize = 3;
+/** Aligns the entry values to a 4-byte boundary after the final 1-byte mirror. */
+inline constexpr std::size_t kControllerBindingEntryPaddingSize = 3;
 
 #pragma pack(push, 1)
 
@@ -95,6 +97,10 @@ struct Record {
     std::uint8_t filmGrainMirror{};
     /** Local chromatic-aberration state is seeded while postProcessingSeedVersion remains open. */
     std::uint8_t chromaticAberrationMirror{};
+    std::array<std::byte, kControllerBindingEntryPaddingSize> controllerBindingEntryPadding{};
+    std::array<std::uint32_t,
+               state::account::settings::controller_bindings::kControllerActionCount>
+        controllerBindingEntry{};
 };
 
 /** Replicated account setting mirrors followed by every fixed keybinding action. */

@@ -6,6 +6,8 @@
 #include <cstdint>
 #include <limits>
 
+#include "../../../../state/account/settings/controller_bindings.h"
+#include "../../../../state/account/settings/native_controller_binding_map.h"
 #include "../../../../state/account/settings/native_key_binding_map.h"
 #include "../../../../state/account/settings/settings_state.h"
 #include "../../../encoding/bit_reader.h"
@@ -39,6 +41,7 @@ constexpr std::size_t kCalibrationVectorCount = 2;
 constexpr std::size_t kCalibrationValuesPerVector = 2;
 constexpr std::size_t kPreferenceMatrixRowCount = 3;
 constexpr std::size_t kPreferenceMatrixColumnCount = 50;
+constexpr std::size_t kControllerBindingRow = 0;
 constexpr std::size_t kGroup_0_1_4OptionalFieldCount = 8;
 constexpr std::size_t kGroup_0_1_3ValueCount = 4;
 constexpr std::size_t kGroup_0_1_5ValueCount = 22;
@@ -503,19 +506,43 @@ template <typename ReadBody>
     return true;
 }
 
-/** Consumes present preference matrix path 0.1.1.62 in row-major descriptor order. */
-[[nodiscard]] bool skip_preference_matrix(Reader& reader) noexcept {
+/** Reads the optional 3x50 matrix and publishes its controller-binding row by action. */
+[[nodiscard]] bool read_preference_matrix_values(Reader& reader,
+                                                Request& output) noexcept {
+    using ControllerBindings =
+        typename std::remove_cvref_t<decltype(output.settings.controllerBindings)>::value_type;
+
+    ControllerBindings staged{};
     for (std::size_t row = 0; row < kPreferenceMatrixRowCount; ++row) {
         for (std::size_t column = 0; column < kPreferenceMatrixColumnCount; ++column) {
-            if (!skip_optional_bits(reader, kScalar32WidthBits)) {
+            bool present = false;
+            std::uint64_t value = 0;
+            if (!read_presence(reader, present)) {
                 return false;
+            }
+            if (present) {
+                if (!reader.read(kScalar32WidthBits, value)) {
+                    return false;
+                }
+                if (row == kControllerBindingRow && column < staged.values.size()) {
+                    const auto action = settings::controller_bindings::kControllerActionsByNativeSlot[column];
+                    auto& binding = staged.values[static_cast<std::size_t>(action)];
+                    const std::uint16_t input = static_cast<std::uint16_t>(value) & 0xFFFFu;
+                    binding.primary = static_cast<std::uint8_t>(input & settings::controller_bindings::kControllerPrimaryMask);
+                    binding.secondary = static_cast<std::uint8_t>((input & settings::controller_bindings::kControllerSecondaryMask)
+                        >> settings::controller_bindings::kControllerSecondaryShift);
+                    binding.flags = static_cast<std::uint8_t>((input & settings::controller_bindings::kControllerModifierMask) 
+                        >> settings::controller_bindings::kControllerModifierShift);
+                }
             }
         }
     }
+    staged.configured = true;
+    output.settings.controllerBindings = staged;
     return true;
 }
 
-/** Decodes present preference group 0.1.1 and consumes its optional opaque matrix. */
+/** Decodes present preference group 0.1.1 and reads the optional matrix values in-place. */
 [[nodiscard]] bool read_preference_record(Reader& reader, Request& output) noexcept {
     for (const PreferenceDescriptor& descriptor : kPreferenceDescriptors) {
         bool present = false;
@@ -527,7 +554,13 @@ template <typename ReadBody>
             descriptor.assign(value, output);
         }
     }
-    return read_optional_group(reader, skip_preference_matrix);
+
+    if (!read_optional_group(reader, [&](Reader& matrixReader) noexcept {
+            return read_preference_matrix_values(matrixReader, output);
+        })) {
+        return false;
+    }
+    return true;
 }
 
 /** Decodes the body of present fixed keybinding table path 0.1.2.5 atomically. */

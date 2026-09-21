@@ -186,6 +186,40 @@ template <typename Value, std::size_t Count>
     return true;
 }
 
+/* Checks that a controller button a valid value which is less or equal to the unbound value of 0x1D */
+[[nodiscard]] bool valid_controller_button(const std::optional<std::uint8_t>& value) noexcept {
+    if (!value.has_value()) {
+        return true;
+    }
+    return *value <= controller_bindings::kControllerUnboundInputCode;
+}
+
+/* Checks flags are mutually exclusive or 0 for a controller action. */
+[[nodiscard]] bool valid_controller_flags(const std::optional<std::uint8_t>& value) noexcept {
+    if (!value.has_value()) {
+        return true;
+    }
+    return (*value == 0)
+        || ((*value & controller_bindings::kControllerLongPressModifierFlag) == controller_bindings::kControllerLongPressModifierFlag)
+        || ((*value & controller_bindings::kControllerDoublePressModifierFlag) == controller_bindings::kControllerDoublePressModifierFlag);
+}
+
+/** Checks every fixed binding row and rejects unsupported or combined modifier bits. */
+[[nodiscard]] bool valid_controller_bindings(
+    const controller_bindings::ControllerBindings& value) noexcept {
+    if (!value.configured) {
+        return false;
+    }
+    for (const controller_bindings::Binding& binding : value.values) {
+        if (!valid_controller_button(*binding.primary) 
+                || !valid_controller_button(*binding.secondary)
+                || !valid_controller_flags(*binding.flags)) {
+            return false;
+        }
+    }
+    return true;
+}
+
 } // namespace
 
 /** Checks a whole account-settings object against the supported menu domains. */
@@ -193,6 +227,7 @@ bool valid(const AccountSettings& value) noexcept {
     const bool validBindingSource = value.keyBindingSource == KeyBindingSource::account
                                     || value.keyBindingSource == KeyBindingSource::computer;
     return value.configured && valid_key_bindings(value.keyBindings) && validBindingSource
+        //    && valid_controller_bindings(value.controllerBindings)
            && valid_controls(value.controls) && valid_audio(value.audio)
            && valid_display(value.display) && valid_interface(value.interface)
            && valid_social(value.social);

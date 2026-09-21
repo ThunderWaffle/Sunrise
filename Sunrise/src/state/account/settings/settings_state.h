@@ -2,6 +2,7 @@
 
 #include <cstdint>
 
+#include "controller_bindings.h"
 #include "key_bindings.h"
 
 namespace sunrise::state::account::settings {
@@ -120,6 +121,7 @@ struct AccountSettings {
     Social social;
     KeyBindingSource keyBindingSource{KeyBindingSource::computer};
     bindings::KeyBindings keyBindings;
+    controller_bindings::ControllerBindings controllerBindings;
     /** True after every required preference group has been loaded. */
     bool configured{};
 

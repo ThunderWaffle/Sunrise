@@ -32,8 +32,8 @@ inline constexpr std::size_t kSelectionPublicityPaddingSize = 24;
 inline constexpr std::size_t kSeenProfileSetupPaddingSize = 20;
 /** 3 reserved bytes align account preferences after the profile-setup completion byte. */
 inline constexpr std::size_t kProfileSetupPreferencesPaddingSize = 3;
-/** 607 reserved bytes separate preference and keybinding records. */
-inline constexpr std::size_t kPreferencesBindingsPaddingSize = 607;
+/** 404 reserved bytes separate preference and keybinding records after the matrix entry. */
+inline constexpr std::size_t kPreferencesBindingsPaddingSize = 404;
 /** Padding around the profile's 88-byte new-item bitmap. */
 inline constexpr std::size_t kBindingsNewItemsPaddingSize = 72;
 inline constexpr std::size_t kNewItemsProfilePaddingSize = 296;

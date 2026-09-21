@@ -28,7 +28,9 @@ enum class Bank : int {
                         std::string_view schema,
                         std::string_view defaults,
                         std::string_view settingsSchema,
-                        std::string_view settingsDefaults) noexcept;
+                        std::string_view settingsDefaults,
+                        std::string_view controllerBindingsSchema,
+                        std::string_view controllerBindingsDefaults) noexcept;
 void shutdown() noexcept;
 [[nodiscard]] bool read_account(AccountState& output) noexcept;
 [[nodiscard]] AccountState account() noexcept;

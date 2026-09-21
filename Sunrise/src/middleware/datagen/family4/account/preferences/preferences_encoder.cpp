@@ -1,5 +1,6 @@
 #include "preferences_encoder.h"
 
+#include "../../../../../state/account/settings/native_controller_binding_map.h"
 #include "../../../../../state/account/settings/native_key_binding_map.h"
 
 namespace sunrise::middleware::datagen::family4::account::preferences {
@@ -42,6 +43,23 @@ pack_binding(const state::account::settings::bindings::Binding& binding) noexcep
     /** A 16-bit word separates the native primary and secondary input halves. */
     constexpr unsigned kSecondaryWordShift = 16;
     return (secondary << kSecondaryWordShift) | primary;
+}
+
+/**
+ * Packs controller primary, secondary, and modifier flags into one value.
+ * @param binding Authored optional input halves.
+ * @return Game parsable uint16_t reflecting the controller input binding for an action
+ */
+[[nodiscard]] constexpr std::uint16_t
+pack_controller_binding(const state::account::settings::controller_bindings::Binding& binding) noexcept {
+    const std::uint16_t unboundInput = state::account::settings::controller_bindings::kControllerUnboundInputCode;
+    const std::uint16_t modifierShift = state::account::settings::controller_bindings::kControllerModifierShift;
+    const std::uint16_t secondaryShift = state::account::settings::controller_bindings::kControllerSecondaryShift;
+
+    const std::uint16_t primary = binding.primary.value_or(unboundInput);
+    const std::uint16_t secondary = binding.secondary.value_or(unboundInput);
+    const std::uint16_t flags = binding.flags.value_or(0);
+    return flags << modifierShift | (secondary << secondaryShift) | primary;
 }
 
 } // namespace
@@ -129,6 +147,15 @@ bool encode(const state::account::settings::AccountSettings& settings,
     record.clanChatJoinMode = social.clanChatJoinMode;
     record.chatAutoHideMode = social.chatAutoHideMode;
     bindingsRecord.voiceChatMirror = native_boolean(social.voiceChatEnabled);
+
+    for (std::size_t nativeSlot = 0;
+         nativeSlot < state::account::settings::controller_bindings::kControllerActionsByNativeSlot.size();
+         ++nativeSlot) {
+        const auto action = state::account::settings::controller_bindings::kControllerActionsByNativeSlot[nativeSlot];
+        const std::size_t stateIndex = static_cast<std::size_t>(action);
+        record.controllerBindingEntry[nativeSlot] =
+            pack_controller_binding(settings.controllerBindings.values[stateIndex]);
+    }
 
     for (std::size_t nativeSlot = 0; nativeSlot < bindings::kActionsByNativeSlot.size();
          ++nativeSlot) {
